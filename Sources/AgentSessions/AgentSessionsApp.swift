@@ -28,7 +28,7 @@ struct AgentSessionsApp: App {
         MenuBarExtra {
             SessionListView(model: model)
         } label: {
-            Image(systemName: "clock.arrow.circlepath")
+            Image(systemName: "list.bullet.rectangle")
         }
         .menuBarExtraStyle(.window)
     }
