@@ -1,0 +1,15 @@
+{
+  "name": "agent-sessions",
+  "description": "Browse, search, resume and clean up past Claude Code and Codex sessions from inside Claude Code.",
+  "version": "0.1.0",
+  "author": {
+    "name": "johney4415",
+    "url": "https://github.com/johney4415"
+  },
+  "homepage": "https://github.com/johney4415/agent-sessions",
+  "repository": "https://github.com/johney4415/agent-sessions",
+  "license": "MIT",
+  "keywords": ["sessions", "transcripts", "history", "resume", "codex", "cleanup"],
+  "commands": "./commands",
+  "skills": "./skills"
+}

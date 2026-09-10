@@ -1,4 +1,4 @@
-.PHONY: build test install uninstall
+.PHONY: build test install install-cli uninstall
 
 build:
 	swift build
@@ -11,3 +11,6 @@ install:
 
 uninstall:
 	./scripts/uninstall.sh
+
+install-cli:
+	./scripts/install.sh --cli-only
