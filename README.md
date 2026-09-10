@@ -5,8 +5,6 @@ It reads the transcripts Claude Code and Codex leave on disk, gives each one a
 readable title, and lets you pick several at once to copy their resume commands or
 move them to the Trash.
 
-Companion to [Agent Watch](https://github.com/johney4415/agent-watch), which tracks
-sessions that are still running. This one is for the pile they leave behind.
 
 ## What it does
 
