@@ -1,16 +1,16 @@
 {
-  "name": "agent-sessions",
+  "name": "session-engram",
   "owner": {
     "name": "johney4415",
     "url": "https://github.com/johney4415"
   },
   "metadata": {
-    "description": "Agent Sessions — past Claude Code and Codex sessions, from inside Claude Code.",
+    "description": "Session Engram — past Claude Code and Codex sessions, from inside Claude Code.",
     "version": "0.1.0"
   },
   "plugins": [
     {
-      "name": "agent-sessions",
+      "name": "session-engram",
       "source": "./",
       "description": "Browse, search, resume and clean up past Claude Code and Codex sessions from inside Claude Code.",
       "version": "0.1.0",
@@ -18,7 +18,7 @@
         "name": "johney4415",
         "url": "https://github.com/johney4415"
       },
-      "homepage": "https://github.com/johney4415/agent-sessions",
+      "homepage": "https://github.com/johney4415/session-engram",
       "license": "MIT",
       "keywords": ["sessions", "transcripts", "history", "resume", "codex", "cleanup"],
       "category": "productivity"

@@ -1,5 +1,5 @@
 import Testing
-@testable import AgentSessions
+@testable import SessionEngram
 
 @Suite("Terminal column arithmetic")
 struct TextWidthTests {

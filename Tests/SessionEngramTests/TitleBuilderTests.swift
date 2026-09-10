@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import AgentSessions
+@testable import SessionEngram
 
 @Test func skipsHarnessInjectedTurns() {
     #expect(TitleBuilder.isPersonWritten("<recommended_plugins>\nAirtable\n</recommended_plugins>") == false)

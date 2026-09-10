@@ -1,14 +1,14 @@
 ---
 description: List past Claude Code and Codex sessions, optionally filtered
 argument-hint: "[words to filter by] [--claude|--codex] [--sort largest]"
-allowed-tools: Bash(agent-sessions:*), Bash(command -v agent-sessions)
+allowed-tools: Bash(session-engram:*), Bash(command -v session-engram)
 ---
 
-List the user's past agent sessions with `agent-sessions`.
+List the user's past agent sessions with `session-engram`.
 
 Arguments, if any: `$ARGUMENTS`
 
-1. Run `agent-sessions list --plain --limit 20`, adding the arguments above.
+1. Run `session-engram list --plain --limit 20`, adding the arguments above.
    Bare words go through `--search` (every word has to match the title, the
    directory or the id); flags such as `--claude`, `--codex`, `--sort largest`
    or `-n 30` pass straight through.

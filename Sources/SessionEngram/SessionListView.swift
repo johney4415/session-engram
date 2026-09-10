@@ -23,7 +23,7 @@ struct SessionListView: View {
 
     private var header: some View {
         HStack(spacing: 6) {
-            Text("Agent Sessions").font(.headline)
+            Text("Session Engram").font(.headline)
             Text(summary)
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -155,7 +155,7 @@ struct SessionListView: View {
             Menu {
                 Button("Select all shown") { model.selectAllVisible() }
                 Divider()
-                Button("Quit Agent Sessions") { NSApplication.shared.terminate(nil) }
+                Button("Quit Session Engram") { NSApplication.shared.terminate(nil) }
             } label: {
                 Image(systemName: "ellipsis.circle")
             }

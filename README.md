@@ -1,9 +1,9 @@
-# Agent Sessions
+# Session Engram
 
 Your finished Claude Code and Codex sessions, in one list you can search, resume
 and clean up — from the menu bar, the terminal, or inside Claude Code itself.
 
-![The Agent Sessions list open in the macOS menu bar](docs/menu-bar.png)
+![The Session Engram list open in the macOS menu bar](docs/menu-bar.png)
 
 It reads the transcripts already on disk — `~/.claude/projects` and
 `~/.codex/sessions` — and titles each one by the first prompt you typed, not the
@@ -15,12 +15,12 @@ terminal; nothing leaves the machine and there is no telemetry.
 Needs macOS 14+, a Swift 6 toolchain (Xcode 16) and Claude Code or Codex.
 
 ```sh
-git clone https://github.com/johney4415/agent-sessions.git
-cd agent-sessions && make install
+git clone https://github.com/johney4415/session-engram.git
+cd session-engram && make install
 ```
 
-That puts the CLI at `~/.local/bin/agent-sessions` and the menu bar app at
-`~/Applications/Agent Sessions.app`. If the CLI is not found:
+That puts the CLI at `~/.local/bin/session-engram` and the menu bar app at
+`~/Applications/Session Engram.app`. If the CLI is not found:
 
 ```sh
 echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc && exec zsh
@@ -32,8 +32,8 @@ echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc && exec zsh
 ### As a Claude Code plugin
 
 ```
-/plugin marketplace add johney4415/agent-sessions
-/plugin install agent-sessions@agent-sessions
+/plugin marketplace add johney4415/session-engram
+/plugin install session-engram@session-engram
 ```
 
 | Command | |
@@ -57,7 +57,7 @@ click rows to select, then **Copy resume** or **Trash**. Right-click a row to
 copy its id or reveal the transcript. The first open scans; after that it is
 cached, and the circular arrow rescans.
 
-**Terminal** — `agent-sessions` with no arguments opens the same list
+**Terminal** — `session-engram` with no arguments opens the same list
 full-screen.
 
 | Key | |
@@ -73,19 +73,19 @@ full-screen.
 **Scripts**
 
 ```sh
-agent-sessions list --sort largest -n 10     # what is eating disk
-agent-sessions list --codex --search redis
-agent-sessions prompts 1a2b3c4d              # the prompts you typed in one session
-eval "$(agent-sessions resume 1a2b3c4d)"     # jump straight back in
-agent-sessions delete 1a2b3c4d --yes         # move to Trash
-agent-sessions list --plain | fzf -m | cut -f1 | xargs agent-sessions delete
+session-engram list --sort largest -n 10     # what is eating disk
+session-engram list --codex --search redis
+session-engram prompts 1a2b3c4d              # the prompts you typed in one session
+eval "$(session-engram resume 1a2b3c4d)"     # jump straight back in
+session-engram delete 1a2b3c4d --yes         # move to Trash
+session-engram list --plain | fzf -m | cut -f1 | xargs session-engram delete
 ```
 
 Ids match by prefix, so the eight characters the list shows are enough; an
 ambiguous prefix is reported rather than guessed at. `--plain` gives one
 tab-separated line per session, `--json` the full records. `delete --permanent`
 is the one way this tool removes a transcript unrecoverably.
-`agent-sessions help` lists everything.
+`session-engram help` lists everything.
 
 ## Finding one by description
 
@@ -93,8 +93,8 @@ Word search only finds what you can spell. For the sessions you remember by what
 happened in them, `prompts` prints what you typed in one session:
 
 ```sh
-agent-sessions prompts 1a2b3c4d
-agent-sessions prompts 1a2b3c4d --limit 20 --json
+session-engram prompts 1a2b3c4d
+session-engram prompts 1a2b3c4d --limit 20 --json
 ```
 
 A title is only the first thing you typed, so a session on the right subject

@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import AgentSessions
+@testable import SessionEngram
 
 private func record(
     _ id: String,

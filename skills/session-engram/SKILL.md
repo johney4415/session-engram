@@ -1,11 +1,11 @@
 ---
-name: agent-sessions
-description: Find, resume, inspect or clean up past Claude Code and Codex sessions on this machine using the `agent-sessions` CLI. Use when the user refers to an earlier session, conversation or transcript ("the session where we fixed the redis limit", "上次那個 session", "resume that conversation", "what did I work on yesterday"), asks which sessions are eating disk space, or asks to delete old transcripts.
+name: session-engram
+description: Find, resume, inspect or clean up past Claude Code and Codex sessions on this machine using the `session-engram` CLI. Use when the user refers to an earlier session, conversation or transcript ("the session where we fixed the redis limit", "上次那個 session", "resume that conversation", "what did I work on yesterday"), asks which sessions are eating disk space, or asks to delete old transcripts.
 ---
 
-# Agent Sessions
+# Session Engram
 
-`agent-sessions` indexes every Claude Code transcript in `~/.claude/projects` and
+`session-engram` indexes every Claude Code transcript in `~/.claude/projects` and
 every Codex rollout in `~/.codex/sessions`, and titles each one by the first
 prompt the user actually typed. Use it instead of reading transcript files by
 hand — parsing those directories directly is slow and the raw JSONL has no
@@ -18,7 +18,7 @@ Every command reads local files and prints to stdout. Nothing leaves the machine
 Check the CLI is installed:
 
 ```sh
-command -v agent-sessions || ls "$HOME/.local/bin/agent-sessions"
+command -v session-engram || ls "$HOME/.local/bin/session-engram"
 ```
 
 If it is missing, build and install it from the plugin's own checkout, then use
@@ -35,11 +35,11 @@ terminal is attached, and the human-readable listing writes its summary to
 stderr.
 
 ```sh
-agent-sessions list --plain --limit 20              # newest first
-agent-sessions list --json --limit 5                # full records
-agent-sessions list --plain --search "redis limit"  # every word must match
-agent-sessions list --plain --sort largest -n 10    # disk hogs
-agent-sessions list --plain --claude                # one provider only
+session-engram list --plain --limit 20              # newest first
+session-engram list --json --limit 5                # full records
+session-engram list --plain --search "redis limit"  # every word must match
+session-engram list --plain --sort largest -n 10    # disk hogs
+session-engram list --plain --claude                # one provider only
 ```
 
 `--plain` prints one tab-separated line per session:
@@ -60,11 +60,11 @@ matching yourself in two passes. A title is only the first thing they typed, so
 a session on the right subject often has an unrelated title — the titles alone
 are not enough to answer with.
 
-1. **Shortlist from the metadata.** `agent-sessions list --plain --limit 60`,
+1. **Shortlist from the metadata.** `session-engram list --plain --limit 60`,
    narrowed by `--claude`/`--codex` or a `--search` word if the description
    gives you one that will actually appear. Read the titles, directories and
    dates, and pick the handful that could plausibly be it.
-2. **Read what they typed.** For each candidate, `agent-sessions prompts <id>`
+2. **Read what they typed.** For each candidate, `session-engram prompts <id>`
    prints the prompts the user typed in that session, one per line — the topic
    of the session in their own words. `--limit <n>` takes more or fewer,
    `--json` gives an array.
@@ -76,13 +76,13 @@ assistant replies, tool calls and file contents are never read.
 
 ## Resuming
 
-`agent-sessions resume <id>` prints the command that reopens a session; it does
+`session-engram resume <id>` prints the command that reopens a session; it does
 not resume it. That is the right behaviour here — resuming replaces the running
 process, which would kill this Claude Code session.
 
 ```sh
-agent-sessions resume 1a2b3c4d          # prints: cd <dir> && claude --resume <id>
-agent-sessions resume 1a2b3c4d --copy   # puts that line on the clipboard
+session-engram resume 1a2b3c4d          # prints: cd <dir> && claude --resume <id>
+session-engram resume 1a2b3c4d --copy   # puts that line on the clipboard
 ```
 
 Give the user the printed line to run themselves, or offer `--copy`. Never
@@ -101,7 +101,7 @@ which a tool call has no way to answer, so:
 3. Only then run it with `--yes`.
 
 ```sh
-agent-sessions delete 1a2b3c4d 5e6f7a8b --yes
+session-engram delete 1a2b3c4d 5e6f7a8b --yes
 ```
 
 Never pass `--permanent` unless the user asks for an unrecoverable delete in so
@@ -110,9 +110,9 @@ the parse cache, so the next listing rescans.
 
 ## Other
 
-- `agent-sessions refresh` rebuilds the parse cache; only needed when a listing
+- `session-engram refresh` rebuilds the parse cache; only needed when a listing
   looks stale.
-- `agent-sessions help` lists every command and option.
-- `agent-sessions browse` is the interactive full-screen browser. It is for a
+- `session-engram help` lists every command and option.
+- `session-engram browse` is the interactive full-screen browser. It is for a
   human at a terminal, not for a tool call; without a TTY it degrades to the
   plain listing.

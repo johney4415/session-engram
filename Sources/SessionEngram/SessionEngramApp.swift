@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 @main
-struct AgentSessionsApp: App {
+struct SessionEngramApp: App {
     @StateObject private var model = SessionListModel()
 
     init() {
@@ -20,11 +20,11 @@ struct AgentSessionsApp: App {
             Foundation.exit(EXIT_SUCCESS)
         } catch let error as CLI.ExitError {
             if !error.message.isEmpty {
-                FileHandle.standardError.write(Data("agent-sessions: \(error.message)\n".utf8))
+                FileHandle.standardError.write(Data("session-engram: \(error.message)\n".utf8))
             }
             Foundation.exit(error.code)
         } catch {
-            FileHandle.standardError.write(Data("agent-sessions: \(error.localizedDescription)\n".utf8))
+            FileHandle.standardError.write(Data("session-engram: \(error.localizedDescription)\n".utf8))
             Foundation.exit(EXIT_FAILURE)
         }
     }
@@ -40,7 +40,7 @@ struct AgentSessionsApp: App {
 }
 
 enum LaunchContext {
-    /// True when the running binary sits inside `Agent Sessions.app`, which is the
+    /// True when the running binary sits inside `Session Engram.app`, which is the
     /// only place the menu bar scene should come up.
     static var isAppBundle: Bool {
         Bundle.main.bundleURL.pathExtension == "app"

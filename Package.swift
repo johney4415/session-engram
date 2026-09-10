@@ -2,13 +2,13 @@
 import PackageDescription
 
 let package = Package(
-    name: "AgentSessions",
+    name: "SessionEngram",
     platforms: [.macOS(.v14)],
     products: [
-        .executable(name: "agent-sessions", targets: ["AgentSessions"]),
+        .executable(name: "session-engram", targets: ["SessionEngram"]),
     ],
     targets: [
-        .executableTarget(name: "AgentSessions"),
-        .testTarget(name: "AgentSessionsTests", dependencies: ["AgentSessions"]),
+        .executableTarget(name: "SessionEngram"),
+        .testTarget(name: "SessionEngramTests", dependencies: ["SessionEngram"]),
     ]
 )

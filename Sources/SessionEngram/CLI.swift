@@ -9,17 +9,17 @@ enum CLI {
     }
 
     static let usage = """
-    agent-sessions — browse, resume and clean up past Claude Code and Codex sessions.
+    session-engram — browse, resume and clean up past Claude Code and Codex sessions.
 
     USAGE
-      agent-sessions                        Browse sessions interactively
-      agent-sessions browse [options]       The same browser, explicitly
-      agent-sessions list [options]         Print sessions
-      agent-sessions prompts <id> [--json]  Print the prompts typed in a session
-      agent-sessions resume <id> [--copy]   Print the command that reopens a session
-      agent-sessions delete <id>... [opts]  Move sessions to the Trash
-      agent-sessions refresh                Rebuild the parse cache
-      agent-sessions help
+      session-engram                        Browse sessions interactively
+      session-engram browse [options]       The same browser, explicitly
+      session-engram list [options]         Print sessions
+      session-engram prompts <id> [--json]  Print the prompts typed in a session
+      session-engram resume <id> [--copy]   Print the command that reopens a session
+      session-engram delete <id>... [opts]  Move sessions to the Trash
+      session-engram refresh                Rebuild the parse cache
+      session-engram help
 
     BROWSE KEYS
       arrows/jk move    space select      a all      x none
@@ -47,13 +47,13 @@ enum CLI {
       --permanent              Delete outright instead of moving to the Trash
 
     EXAMPLES
-      agent-sessions list --search "export preview" --limit 10
-      eval "$(agent-sessions resume 1a2b3c4d)"
-      agent-sessions list --plain | fzf -m | cut -f1 | xargs agent-sessions delete
-      agent-sessions browse --codex --sort largest
-      agent-sessions prompts 1a2b3c4d
+      session-engram list --search "export preview" --limit 10
+      eval "$(session-engram resume 1a2b3c4d)"
+      session-engram list --plain | fzf -m | cut -f1 | xargs session-engram delete
+      session-engram browse --codex --sort largest
+      session-engram prompts 1a2b3c4d
 
-    The menu bar app opens when the binary is launched from Agent Sessions.app.
+    The menu bar app opens when the binary is launched from Session Engram.app.
     Nothing leaves the machine: every command reads local files and writes to your
     terminal.
     """
@@ -72,7 +72,7 @@ enum CLI {
         case "help", "--help", "-h": print(usage)
         case "--version", "version": print(Version.current)
         default:
-            throw ExitError(message: "unknown command '\(command)'. Run 'agent-sessions help'.", code: 2)
+            throw ExitError(message: "unknown command '\(command)'. Run 'session-engram help'.", code: 2)
         }
     }
 
@@ -186,7 +186,7 @@ enum CLI {
     private static func prompts(_ args: [String]) throws {
         let options = try Options(args)
         guard let prefix = options.query.text.split(separator: " ").first.map(String.init) else {
-            throw ExitError(message: "usage: agent-sessions prompts <session-id> [--limit n] [--json]", code: 2)
+            throw ExitError(message: "usage: session-engram prompts <session-id> [--limit n] [--json]", code: 2)
         }
         let record = try lookup(prefix, in: loadRecords())
         let typed = SessionExcerpt.prompts(for: record, limit: options.limit ?? 8)
@@ -211,7 +211,7 @@ enum CLI {
         var rest = args
         let copy = rest.removeFlag("--copy")
         guard let prefix = rest.first else {
-            throw ExitError(message: "usage: agent-sessions resume <session-id> [--copy]", code: 2)
+            throw ExitError(message: "usage: session-engram resume <session-id> [--copy]", code: 2)
         }
         let record = try lookup(prefix, in: loadRecords())
         if record.isArchived {
@@ -233,7 +233,7 @@ enum CLI {
         let permanent = rest.removeFlag("--permanent")
         let prefixes = rest.filter { !$0.hasPrefix("-") }
         guard !prefixes.isEmpty else {
-            throw ExitError(message: "usage: agent-sessions delete <session-id>... [--yes] [--permanent]", code: 2)
+            throw ExitError(message: "usage: session-engram delete <session-id>... [--yes] [--permanent]", code: 2)
         }
 
         let records = loadRecords()

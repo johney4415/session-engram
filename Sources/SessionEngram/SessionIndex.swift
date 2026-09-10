@@ -33,7 +33,7 @@ struct SessionIndex: Sendable {
     }
 
     static func defaultCacheURL(home: URL = FileManager.default.homeDirectoryForCurrentUser) -> URL {
-        home.appending(path: "Library/Caches/dev.johney4415.agent-sessions/index.json")
+        home.appending(path: "Library/Caches/dev.johney4415.session-engram/index.json")
     }
 
     func load() -> [SessionRecord] {

@@ -278,8 +278,8 @@ final class InteractiveBrowser {
             ? "\(allRecords.count) sessions"
             : "\(visible.count)/\(allRecords.count) sessions"
         let right = "\(scope) · \(query.sort.label) · \(ByteFormat.short(bytes))"
-        let left = Style.bold("agent-sessions") + Style.dim("  \(counts)")
-        let gap = max(1, columns - TextWidth.of("agent-sessions  \(counts)") - TextWidth.of(right))
+        let left = Style.bold("session-engram") + Style.dim("  \(counts)")
+        let gap = max(1, columns - TextWidth.of("session-engram  \(counts)") - TextWidth.of(right))
         return left + String(repeating: " ", count: gap) + Style.dim(right)
     }
 

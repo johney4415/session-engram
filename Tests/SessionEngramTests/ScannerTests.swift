@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import AgentSessions
+@testable import SessionEngram
 
 /// A throwaway directory tree that mimics the on-disk layout of both CLIs.
 private struct Fixture {
@@ -8,7 +8,7 @@ private struct Fixture {
 
     init() throws {
         root = URL(filePath: NSTemporaryDirectory())
-            .appending(path: "agent-sessions-tests-\(UUID().uuidString)")
+            .appending(path: "session-engram-tests-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
     }
 
