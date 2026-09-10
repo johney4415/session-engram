@@ -83,6 +83,12 @@ enum SessionSort: String, CaseIterable, Identifiable, Sendable {
     case oldest
     case largest
     case busiest
+    /// Keeps the order the caller supplied. An agent-ranked result stays in the
+    /// agent's order even after it is filtered again.
+    case relevance
+
+    /// The orders a person picks directly; relevance only exists after a search.
+    static let manual: [SessionSort] = [.recent, .oldest, .largest, .busiest]
 
     var id: String { rawValue }
 
@@ -92,6 +98,7 @@ enum SessionSort: String, CaseIterable, Identifiable, Sendable {
         case .oldest: "Oldest"
         case .largest: "Largest"
         case .busiest: "Most turns"
+        case .relevance: "Relevance"
         }
     }
 
@@ -101,6 +108,7 @@ enum SessionSort: String, CaseIterable, Identifiable, Sendable {
         case .oldest: records.sorted { $0.updatedAt < $1.updatedAt }
         case .largest: records.sorted { $0.byteCount > $1.byteCount }
         case .busiest: records.sorted { $0.messageCount > $1.messageCount }
+        case .relevance: records
         }
     }
 }
