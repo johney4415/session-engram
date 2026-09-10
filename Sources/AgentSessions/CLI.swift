@@ -1,7 +1,7 @@
 import Foundation
 
-/// Command line entry point. Runs whenever the binary is invoked with arguments;
-/// without arguments the same binary opens the menu bar app instead.
+/// Command line entry point. Runs for every terminal invocation; the menu bar app
+/// takes over only when the binary is launched from inside the .app bundle.
 enum CLI {
     struct ExitError: Error {
         var message: String
@@ -12,12 +12,29 @@ enum CLI {
     agent-sessions — browse, resume and clean up past Claude Code and Codex sessions.
 
     USAGE
-      agent-sessions                        Open the menu bar app
-      agent-sessions list [options]         List sessions
+      agent-sessions                        Browse sessions interactively
+      agent-sessions browse [options]       The same browser, explicitly
+      agent-sessions list [options]         Print sessions
+      agent-sessions ask "<what you remember>"  Search with claude or codex
       agent-sessions resume <id> [--copy]   Print the command that reopens a session
       agent-sessions delete <id>... [opts]  Move sessions to the Trash
       agent-sessions refresh                Rebuild the parse cache
       agent-sessions help
+
+    BROWSE KEYS
+      arrows/jk move    space select      a all      x none
+      / filter by word  ? ask claude or codex to find it
+      enter resume in this terminal       c copy resume command
+      d move to Trash   s sort   f provider   r rescan
+      esc drop the search, then the filter, then quit    q quit
+
+    ASK OPTIONS
+      --agent <claude|codex>   Which agent judges the match (default: whichever
+                               is on PATH, claude first)
+      --limit <n>              At most n matches (default 8)
+      --dry-run                Print the prompt that would be sent, send nothing
+      --plain, --json          Print the matches instead of opening the browser
+      Filters such as --codex or --sort narrow the pool before the agent sees it.
 
     LIST OPTIONS
       --claude, --codex        Only one provider
@@ -27,6 +44,7 @@ enum CLI {
       --no-archived            Hide Codex archived sessions
       --plain                  One tab-separated line per session (for fzf or pipes)
       --json                   Full records as JSON
+      --interactive, -i        Open the browser with these filters applied
 
     DELETE OPTIONS
       --yes                    Skip the confirmation prompt
@@ -36,6 +54,12 @@ enum CLI {
       agent-sessions list --search "export preview" --limit 10
       eval "$(agent-sessions resume 1a2b3c4d)"
       agent-sessions list --plain | fzf -m | cut -f1 | xargs agent-sessions delete
+      agent-sessions browse --codex --sort largest
+      agent-sessions ask "the one where we chased the redis memory limit"
+
+    The menu bar app opens when the binary is launched from Agent Sessions.app.
+    Everything is local except `ask`, which sends session titles — and the prompts
+    of the sessions it shortlists — to the agent CLI you already have installed.
     """
 
     static func run(arguments: [String]) throws {
@@ -43,6 +67,8 @@ enum CLI {
         let command = args.removeFirst()
 
         switch command {
+        case "browse", "pick", "ui": try browse(args)
+        case "ask", "find": try ask(args)
         case "list", "ls": try list(args)
         case "resume", "cd": try resume(args)
         case "delete", "rm": try delete(args)
@@ -58,6 +84,10 @@ enum CLI {
 
     private static func list(_ args: [String]) throws {
         let options = try Options(args)
+        if options.interactive {
+            try browse(args)
+            return
+        }
         let records = options.query.apply(to: loadRecords())
         let shown = options.limit.map { Array(records.prefix($0)) } ?? records
 
@@ -108,6 +138,184 @@ enum CLI {
                 Data("\n\(shown.count) session(s), \(ByteFormat.short(bytes)) on disk\n".utf8)
             )
         }
+    }
+
+    /// Interactive browser. Without a terminal to draw on — a pipe, a cron job —
+    /// this degrades to the plain listing rather than failing.
+    static func browse(_ args: [String]) throws {
+        var rest = args
+        let agent = try searchAgent(&rest)
+        let options = try Options(rest)
+        try browse(records: loadRecords(), query: options.query, agent: agent, args: rest)
+    }
+
+    private static func browse(
+        records: [SessionRecord],
+        query: SessionQuery,
+        agent: SearchAgent?,
+        args: [String],
+        ranking: [SessionRecord] = [],
+        reasons: [String: String] = [:]
+    ) throws {
+        guard let browser = InteractiveBrowser(
+            records: records,
+            query: query,
+            agent: agent,
+            ranking: ranking.map(\.id),
+            reasons: reasons
+        ) else {
+            try list(args.filter { $0 != "--interactive" && $0 != "-i" })
+            return
+        }
+        switch browser.run() {
+        case .quit:
+            return
+        case .resume(let record):
+            try exec(resume: record)
+        }
+    }
+
+    /// Natural-language search. The only command that sends anything off the machine,
+    /// and it does so through the agent CLI the person already runs.
+    private static func ask(_ args: [String]) throws {
+        var rest = args
+        let agent = try searchAgent(&rest)
+        let dryRun = rest.removeFlag("--dry-run")
+        var options = try Options(rest)
+
+        // Bare words are the question here, not a filter: the agent does the matching,
+        // so leaving them in the query would narrow the pool to a literal match.
+        let question = options.query.text
+        options.query.text = ""
+        guard !question.isEmpty else {
+            throw ExitError(
+                message: "usage: agent-sessions ask \"<what you remember>\" [--agent claude|codex]",
+                code: 2
+            )
+        }
+
+        guard let agent = agent ?? SearchAgent.detect() else {
+            throw ExitError(message: "neither claude nor codex is on PATH, so ask has nothing to ask.")
+        }
+
+        let pool = options.query.apply(to: loadRecords())
+        var search = AgentSearch(agent: agent, question: question)
+        if let limit = options.limit { search.limit = limit }
+
+        if dryRun {
+            print(search.shortlistPrompt(for: Array(pool.prefix(AgentSearch.poolLimit))))
+            return
+        }
+
+        // Progress goes to stderr so `--plain` output stays pipeable.
+        search.progress = { message in
+            FileHandle.standardError.write(Data("\(message)\n".utf8))
+        }
+
+        let report: AgentSearch.Report
+        do {
+            report = try search.run(over: pool)
+        } catch let failure as AgentSearch.Failure {
+            throw ExitError(message: failure.message)
+        }
+
+        if let note = report.note {
+            FileHandle.standardError.write(Data("note: \(note)\n".utf8))
+        }
+        guard !report.hits.isEmpty else {
+            FileHandle.standardError.write(
+                Data("\(agent.displayName) found nothing matching that among \(pool.count) sessions.\n".utf8)
+            )
+            return
+        }
+
+        if options.json {
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            encoder.dateEncodingStrategy = .iso8601
+            let payload = report.hits.map { Match(reason: $0.reason, session: $0.record) }
+            print(String(decoding: try encoder.encode(payload), as: UTF8.self))
+            return
+        }
+
+        if !options.plain, Terminal.isAvailable {
+            try browse(
+                records: pool,
+                query: SessionQuery(provider: options.query.provider, sort: .relevance),
+                agent: agent,
+                args: [],
+                ranking: report.hits.map(\.record),
+                reasons: Dictionary(report.hits.map { ($0.record.id, $0.reason) }) { first, _ in first }
+            )
+            return
+        }
+
+        for (offset, hit) in report.hits.enumerated() {
+            let record = hit.record
+            if options.plain {
+                print([
+                    record.sessionID,
+                    record.provider.rawValue,
+                    Format.timestamp(record.updatedAt),
+                    record.directoryLabel,
+                    TextWidth.oneLine(record.title),
+                    hit.reason,
+                ].joined(separator: "\t"))
+            } else {
+                let head = [
+                    String(record.sessionID.prefix(8)),
+                    Format.timestamp(record.updatedAt),
+                    record.provider.rawValue.padded(to: 6),
+                    ByteFormat.short(record.byteCount).padded(to: 6),
+                ].joined(separator: "  ")
+                print("\(offset + 1). \(head)  \(TextWidth.oneLine(record.title))")
+                print("    \(record.directoryLabel)")
+                print("    ↳ \(hit.reason)")
+            }
+        }
+
+        if !options.plain {
+            fflush(stdout)
+            FileHandle.standardError.write(Data(
+                "\n\(report.hits.count) of \(report.shortlisted) shortlisted, chosen by \(agent.displayName)\n".utf8
+            ))
+        }
+    }
+
+    /// `--agent <name>`, shared by ask and browse.
+    private static func searchAgent(_ args: inout [String]) throws -> SearchAgent? {
+        guard let name = args.removeValue(for: "--agent") else { return nil }
+        do {
+            return try SearchAgent.named(name)
+        } catch let failure as AgentSearch.Failure {
+            throw ExitError(message: failure.message, code: 2)
+        }
+    }
+
+    /// One `ask` result, for `--json`.
+    private struct Match: Encodable {
+        var reason: String
+        var session: SessionRecord
+    }
+
+    /// Replaces this process with the agent's own CLI so the session reopens in the
+    /// terminal the browser was started from. Only returns if the launch failed.
+    private static func exec(resume record: SessionRecord) throws {
+        let argv: [String] = switch record.provider {
+        case .claude: ["claude", "--resume", record.sessionID]
+        case .codex: ["codex", "resume", record.sessionID]
+        }
+        if !record.cwd.isEmpty {
+            FileManager.default.changeCurrentDirectoryPath(record.cwd)
+        }
+
+        var pointers = argv.map { strdup($0) } + [nil]
+        defer { for pointer in pointers { free(pointer) } }
+        execvp(argv[0], &pointers)
+
+        // Reached only when exec failed, so leave the command behind to run by hand.
+        print(record.resumeCommand)
+        throw ExitError(message: "could not launch \(argv[0]) — run the command above instead.")
     }
 
     private static func resume(_ args: [String]) throws {
@@ -196,11 +404,12 @@ enum CLI {
         }
     }
 
-    private struct Options {
+    struct Options {
         var query = SessionQuery()
         var limit: Int?
         var json = false
         var plain = false
+        var interactive = false
 
         init(_ args: [String]) throws {
             var iterator = args.makeIterator()
@@ -211,6 +420,7 @@ enum CLI {
                 case "--no-archived": query.includeArchived = false
                 case "--json": json = true
                 case "--plain": plain = true
+                case "--interactive", "-i": interactive = true
                 case "--search", "-s":
                     guard let value = iterator.next() else {
                         throw ExitError(message: "--search needs a value", code: 2)
@@ -297,5 +507,14 @@ extension Array where Element == String {
         guard let index = firstIndex(of: flag) else { return false }
         remove(at: index)
         return true
+    }
+
+    /// Removes `--name value` and hands back the value, so the remaining arguments
+    /// can go through the shared option parser.
+    mutating func removeValue(for flag: String) -> String? {
+        guard let index = firstIndex(of: flag), index + 1 < count else { return nil }
+        let value = self[index + 1]
+        removeSubrange(index...(index + 1))
+        return value
     }
 }
