@@ -123,6 +123,16 @@ struct SessionListView: View {
     }
 
     private var footer: some View {
+        Group {
+            if confirmingDelete {
+                deleteConfirmation
+            } else {
+                actions
+            }
+        }
+    }
+
+    private var actions: some View {
         HStack(spacing: 8) {
             if let status = model.status {
                 Text(status).font(.caption).foregroundStyle(.secondary)
@@ -152,16 +162,27 @@ struct SessionListView: View {
             .menuStyle(.borderlessButton)
             .frame(width: 24)
         }
-        .confirmationDialog(
-            "Move \(model.selection.count) session(s) to the Trash?",
-            isPresented: $confirmingDelete,
-            titleVisibility: .visible
-        ) {
-            Button("Move to Trash", role: .destructive) { model.deleteSelected() }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Transcripts go to the Trash, so you can put them back if you change your mind.")
+    }
+
+    /// The confirmation stays inside the popover. A sheet or `confirmationDialog`
+    /// takes key focus away from the menu bar window, which closes it and tears down
+    /// this view before the button's action ever runs, so the delete never happened.
+    private var deleteConfirmation: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+                .font(.caption)
+            Text("Move \(model.selection.count) session(s) to the Trash?")
+                .font(.caption)
+                .lineLimit(1)
+            Spacer(minLength: 4)
+            Button("Cancel") { confirmingDelete = false }
+            Button("Move to Trash", role: .destructive) {
+                confirmingDelete = false
+                model.deleteSelected()
+            }
         }
+        .help("Transcripts go to the Trash, so you can put them back.")
     }
 }
 
