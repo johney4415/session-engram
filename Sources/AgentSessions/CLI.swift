@@ -15,7 +15,7 @@ enum CLI {
       agent-sessions                        Browse sessions interactively
       agent-sessions browse [options]       The same browser, explicitly
       agent-sessions list [options]         Print sessions
-      agent-sessions ask "<what you remember>"  Search with claude or codex
+      agent-sessions prompts <id> [--json]  Print the prompts typed in a session
       agent-sessions resume <id> [--copy]   Print the command that reopens a session
       agent-sessions delete <id>... [opts]  Move sessions to the Trash
       agent-sessions refresh                Rebuild the parse cache
@@ -23,18 +23,14 @@ enum CLI {
 
     BROWSE KEYS
       arrows/jk move    space select      a all      x none
-      / filter by word  ? ask claude or codex to find it
+      / filter by word
       enter resume in this terminal       c copy resume command
       d move to Trash   s sort   f provider   r rescan
       esc drop the search, then the filter, then quit    q quit
 
-    ASK OPTIONS
-      --agent <claude|codex>   Which agent judges the match (default: whichever
-                               is on PATH, claude first)
-      --limit <n>              At most n matches (default 8)
-      --dry-run                Print the prompt that would be sent, send nothing
-      --plain, --json          Print the matches instead of opening the browser
-      Filters such as --codex or --sort narrow the pool before the agent sees it.
+    PROMPTS OPTIONS
+      --limit <n>              At most n prompts (default 8)
+      --json                   The prompts as a JSON array
 
     LIST OPTIONS
       --claude, --codex        Only one provider
@@ -55,11 +51,11 @@ enum CLI {
       eval "$(agent-sessions resume 1a2b3c4d)"
       agent-sessions list --plain | fzf -m | cut -f1 | xargs agent-sessions delete
       agent-sessions browse --codex --sort largest
-      agent-sessions ask "the one where we chased the redis memory limit"
+      agent-sessions prompts 1a2b3c4d
 
     The menu bar app opens when the binary is launched from Agent Sessions.app.
-    Everything is local except `ask`, which sends session titles — and the prompts
-    of the sessions it shortlists — to the agent CLI you already have installed.
+    Nothing leaves the machine: every command reads local files and writes to your
+    terminal.
     """
 
     static func run(arguments: [String]) throws {
@@ -68,8 +64,8 @@ enum CLI {
 
         switch command {
         case "browse", "pick", "ui": try browse(args)
-        case "ask", "find": try ask(args)
         case "list", "ls": try list(args)
+        case "prompts", "show": try prompts(args)
         case "resume", "cd": try resume(args)
         case "delete", "rm": try delete(args)
         case "refresh": try refresh()
@@ -143,27 +139,16 @@ enum CLI {
     /// Interactive browser. Without a terminal to draw on — a pipe, a cron job —
     /// this degrades to the plain listing rather than failing.
     static func browse(_ args: [String]) throws {
-        var rest = args
-        let agent = try searchAgent(&rest)
-        let options = try Options(rest)
-        try browse(records: loadRecords(), query: options.query, agent: agent, args: rest)
+        let options = try Options(args)
+        try browse(records: loadRecords(), query: options.query, args: args)
     }
 
     private static func browse(
         records: [SessionRecord],
         query: SessionQuery,
-        agent: SearchAgent?,
-        args: [String],
-        ranking: [SessionRecord] = [],
-        reasons: [String: String] = [:]
+        args: [String]
     ) throws {
-        guard let browser = InteractiveBrowser(
-            records: records,
-            query: query,
-            agent: agent,
-            ranking: ranking.map(\.id),
-            reasons: reasons
-        ) else {
+        guard let browser = InteractiveBrowser(records: records, query: query) else {
             try list(args.filter { $0 != "--interactive" && $0 != "-i" })
             return
         }
@@ -173,129 +158,6 @@ enum CLI {
         case .resume(let record):
             try exec(resume: record)
         }
-    }
-
-    /// Natural-language search. The only command that sends anything off the machine,
-    /// and it does so through the agent CLI the person already runs.
-    private static func ask(_ args: [String]) throws {
-        var rest = args
-        let agent = try searchAgent(&rest)
-        let dryRun = rest.removeFlag("--dry-run")
-        var options = try Options(rest)
-
-        // Bare words are the question here, not a filter: the agent does the matching,
-        // so leaving them in the query would narrow the pool to a literal match.
-        let question = options.query.text
-        options.query.text = ""
-        guard !question.isEmpty else {
-            throw ExitError(
-                message: "usage: agent-sessions ask \"<what you remember>\" [--agent claude|codex]",
-                code: 2
-            )
-        }
-
-        guard let agent = agent ?? SearchAgent.detect() else {
-            throw ExitError(message: "neither claude nor codex is on PATH, so ask has nothing to ask.")
-        }
-
-        let pool = options.query.apply(to: loadRecords())
-        var search = AgentSearch(agent: agent, question: question)
-        if let limit = options.limit { search.limit = limit }
-
-        if dryRun {
-            print(search.shortlistPrompt(for: Array(pool.prefix(AgentSearch.poolLimit))))
-            return
-        }
-
-        // Progress goes to stderr so `--plain` output stays pipeable.
-        search.progress = { message in
-            FileHandle.standardError.write(Data("\(message)\n".utf8))
-        }
-
-        let report: AgentSearch.Report
-        do {
-            report = try search.run(over: pool)
-        } catch let failure as AgentSearch.Failure {
-            throw ExitError(message: failure.message)
-        }
-
-        if let note = report.note {
-            FileHandle.standardError.write(Data("note: \(note)\n".utf8))
-        }
-        guard !report.hits.isEmpty else {
-            FileHandle.standardError.write(
-                Data("\(agent.displayName) found nothing matching that among \(pool.count) sessions.\n".utf8)
-            )
-            return
-        }
-
-        if options.json {
-            let encoder = JSONEncoder()
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            encoder.dateEncodingStrategy = .iso8601
-            let payload = report.hits.map { Match(reason: $0.reason, session: $0.record) }
-            print(String(decoding: try encoder.encode(payload), as: UTF8.self))
-            return
-        }
-
-        if !options.plain, Terminal.isAvailable {
-            try browse(
-                records: pool,
-                query: SessionQuery(provider: options.query.provider, sort: .relevance),
-                agent: agent,
-                args: [],
-                ranking: report.hits.map(\.record),
-                reasons: Dictionary(report.hits.map { ($0.record.id, $0.reason) }) { first, _ in first }
-            )
-            return
-        }
-
-        for (offset, hit) in report.hits.enumerated() {
-            let record = hit.record
-            if options.plain {
-                print([
-                    record.sessionID,
-                    record.provider.rawValue,
-                    Format.timestamp(record.updatedAt),
-                    record.directoryLabel,
-                    TextWidth.oneLine(record.title),
-                    hit.reason,
-                ].joined(separator: "\t"))
-            } else {
-                let head = [
-                    String(record.sessionID.prefix(8)),
-                    Format.timestamp(record.updatedAt),
-                    record.provider.rawValue.padded(to: 6),
-                    ByteFormat.short(record.byteCount).padded(to: 6),
-                ].joined(separator: "  ")
-                print("\(offset + 1). \(head)  \(TextWidth.oneLine(record.title))")
-                print("    \(record.directoryLabel)")
-                print("    ↳ \(hit.reason)")
-            }
-        }
-
-        if !options.plain {
-            fflush(stdout)
-            FileHandle.standardError.write(Data(
-                "\n\(report.hits.count) of \(report.shortlisted) shortlisted, chosen by \(agent.displayName)\n".utf8
-            ))
-        }
-    }
-
-    /// `--agent <name>`, shared by ask and browse.
-    private static func searchAgent(_ args: inout [String]) throws -> SearchAgent? {
-        guard let name = args.removeValue(for: "--agent") else { return nil }
-        do {
-            return try SearchAgent.named(name)
-        } catch let failure as AgentSearch.Failure {
-            throw ExitError(message: failure.message, code: 2)
-        }
-    }
-
-    /// One `ask` result, for `--json`.
-    private struct Match: Encodable {
-        var reason: String
-        var session: SessionRecord
     }
 
     /// Replaces this process with the agent's own CLI so the session reopens in the
@@ -316,6 +178,33 @@ enum CLI {
         // Reached only when exec failed, so leave the command behind to run by hand.
         print(record.resumeCommand)
         throw ExitError(message: "could not launch \(argv[0]) — run the command above instead.")
+    }
+
+    /// Prints the prompts a person typed in one session. The titles a listing shows
+    /// are only the first thing they typed, so this is what tells apart two sessions
+    /// on the same subject — for a person reading, or for an agent doing the reading.
+    private static func prompts(_ args: [String]) throws {
+        let options = try Options(args)
+        guard let prefix = options.query.text.split(separator: " ").first.map(String.init) else {
+            throw ExitError(message: "usage: agent-sessions prompts <session-id> [--limit n] [--json]", code: 2)
+        }
+        let record = try lookup(prefix, in: loadRecords())
+        let typed = SessionExcerpt.prompts(for: record, limit: options.limit ?? 8)
+
+        if options.json {
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted]
+            print(String(decoding: try encoder.encode(typed), as: UTF8.self))
+            return
+        }
+
+        guard !typed.isEmpty else {
+            FileHandle.standardError.write(Data("No prompts found in that session.\n".utf8))
+            return
+        }
+        for prompt in typed {
+            print("- \(prompt)")
+        }
     }
 
     private static func resume(_ args: [String]) throws {

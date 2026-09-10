@@ -76,7 +76,7 @@ struct SessionListView: View {
                 .labelsHidden()
 
                 Picker("Sort", selection: $model.sort) {
-                    ForEach(SessionSort.manual) { option in
+                    ForEach(SessionSort.allCases) { option in
                         Text(option.label).tag(option)
                     }
                 }

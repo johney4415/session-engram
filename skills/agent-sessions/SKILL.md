@@ -8,8 +8,10 @@ description: Find, resume, inspect or clean up past Claude Code and Codex sessio
 `agent-sessions` indexes every Claude Code transcript in `~/.claude/projects` and
 every Codex rollout in `~/.codex/sessions`, and titles each one by the first
 prompt the user actually typed. Use it instead of reading transcript files by
-hand — parsing `~/.claude/projects` directly is slow and the raw JSONL has no
+hand — parsing those directories directly is slow and the raw JSONL has no
 usable title.
+
+Every command reads local files and prints to stdout. Nothing leaves the machine.
 
 ## Before anything else
 
@@ -20,7 +22,7 @@ command -v agent-sessions || ls "$HOME/.local/bin/agent-sessions"
 ```
 
 If it is missing, build and install it from the plugin's own checkout, then use
-it via the absolute path if `~/.local/bin` is not on `PATH`:
+the absolute path if `~/.local/bin` is not on `PATH`:
 
 ```sh
 "$CLAUDE_PLUGIN_ROOT/scripts/install.sh" --cli-only
@@ -53,28 +55,24 @@ sessions.
 
 ## Finding a session by description
 
-When the user describes what happened in a session rather than its title, use
-`ask` — it hands the judgement to the `claude` or `codex` CLI:
+When the user describes what happened in a session rather than its title, do the
+matching yourself in two passes. A title is only the first thing they typed, so
+a session on the right subject often has an unrelated title — the titles alone
+are not enough to answer with.
 
-```sh
-agent-sessions ask --plain "the one where we chased the redis memory limit"
-agent-sessions ask --json --limit 3 --agent codex "清理磁碟空間那次"
-```
+1. **Shortlist from the metadata.** `agent-sessions list --plain --limit 60`,
+   narrowed by `--claude`/`--codex` or a `--search` word if the description
+   gives you one that will actually appear. Read the titles, directories and
+   dates, and pick the handful that could plausibly be it.
+2. **Read what they typed.** For each candidate, `agent-sessions prompts <id>`
+   prints the prompts the user typed in that session, one per line — the topic
+   of the session in their own words. `--limit <n>` takes more or fewer,
+   `--json` gives an array.
+3. **Answer with the reason.** Name the session that matches and say which
+   prompt made you sure, then offer `/sessions-resume <id>`.
 
-Output columns are `id, provider, updated-at, directory, title, reason`, ranked
-by relevance, with the agent's reason for each match.
-
-This is the one command that leaves the machine: it spawns `claude -p` or
-`codex exec` under the login the user already has, sending one metadata line per
-session plus the prompts the *user* typed in the dozen it shortlists. Assistant
-replies, tool calls and file contents are never read. It also takes tens of
-seconds and leaves behind a short session of its own titled
-`agent-sessions search: …`.
-
-So: reach for `list --search` first, and only fall back to `ask` when word
-search cannot express what the user remembers. Mention that `ask` calls out to
-the agent CLI before running it on a fresh request. `--dry-run` prints the
-prompt and sends nothing.
+`prompts` reads only the user's own turns, skipping harness-injected context;
+assistant replies, tool calls and file contents are never read.
 
 ## Resuming
 

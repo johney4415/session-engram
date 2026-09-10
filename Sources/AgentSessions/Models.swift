@@ -48,9 +48,10 @@ struct SessionRecord: Identifiable, Hashable, Codable, Sendable {
 
     /// Shell command that reopens the session in its original directory.
     var resumeCommand: String {
+        let id = Shell.quote(sessionID)
         let resume = switch provider {
-        case .claude: "claude --resume \(sessionID)"
-        case .codex: "codex resume \(sessionID)"
+        case .claude: "claude --resume \(id)"
+        case .codex: "codex resume \(id)"
         }
         guard !cwd.isEmpty else { return resume }
         return "cd \(Shell.quote(cwd)) && \(resume)"
@@ -83,12 +84,6 @@ enum SessionSort: String, CaseIterable, Identifiable, Sendable {
     case oldest
     case largest
     case busiest
-    /// Keeps the order the caller supplied. An agent-ranked result stays in the
-    /// agent's order even after it is filtered again.
-    case relevance
-
-    /// The orders a person picks directly; relevance only exists after a search.
-    static let manual: [SessionSort] = [.recent, .oldest, .largest, .busiest]
 
     var id: String { rawValue }
 
@@ -98,7 +93,6 @@ enum SessionSort: String, CaseIterable, Identifiable, Sendable {
         case .oldest: "Oldest"
         case .largest: "Largest"
         case .busiest: "Most turns"
-        case .relevance: "Relevance"
         }
     }
 
@@ -108,7 +102,6 @@ enum SessionSort: String, CaseIterable, Identifiable, Sendable {
         case .oldest: records.sorted { $0.updatedAt < $1.updatedAt }
         case .largest: records.sorted { $0.byteCount > $1.byteCount }
         case .busiest: records.sorted { $0.messageCount > $1.messageCount }
-        case .relevance: records
         }
     }
 }

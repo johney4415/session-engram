@@ -1,11 +1,10 @@
 import Foundation
 
-/// Pulls the prompts a person typed out of a transcript, for the content pass of an
-/// agent-assisted search.
+/// Pulls the prompts a person typed out of a transcript, behind `prompts`.
 ///
-/// Only user turns are read. They carry the topic of the session, and keeping to them
-/// means the search sends what the person wrote themselves rather than whole
-/// transcripts of code and tool output.
+/// Only user turns are read. They carry the topic of the session, which a title —
+/// the first thing typed — often does not, and keeping to them means whole
+/// transcripts of code and tool output stay unread.
 enum SessionExcerpt {
     static func prompts(for record: SessionRecord, limit: Int = 8, characters: Int = 200) -> [String] {
         var found: [String] = []

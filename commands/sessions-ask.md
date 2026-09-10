@@ -1,22 +1,26 @@
 ---
-description: Find a past session from a vague description, using the claude or codex CLI
+description: Find a past session from a vague description of what happened in it
 argument-hint: "<what you remember about the session>"
 allowed-tools: Bash(agent-sessions:*), Bash(command -v agent-sessions)
 ---
 
 Find the session the user is describing: `$ARGUMENTS`
 
-1. If the description is empty, ask what they remember about the session and
-   stop.
-2. Try word search first — `agent-sessions list --plain --search "<the
-   distinctive words>" --limit 10`. If that already answers it, report those
-   matches and skip step 3; it is instant and stays on this machine.
-3. Otherwise run `agent-sessions ask --plain "$ARGUMENTS"`. This spawns the
-   `claude` or `codex` CLI to do the ranking, takes tens of seconds, and sends
-   one metadata line per session plus the prompts the user typed in the dozen it
-   shortlists. Say that you are about to do it before you run it.
-4. Report the matches in relevance order with the reason given for each, and
-   offer `/sessions-resume <id>` for the one they meant.
+If the description is empty, ask what they remember about the session and stop.
 
-Add `--agent codex`, `--limit <n>` or a provider filter if the user asked for
-them. Use `--dry-run` if they want to see what would be sent without sending it.
+1. **Try the word search first.** `agent-sessions list --plain --search "<the
+   distinctive words>" --limit 10`. If the description contains a word that
+   would really appear in a title, directory or id, this answers it outright.
+2. **Otherwise shortlist by metadata.** `agent-sessions list --plain --limit 60`
+   and read the titles, directories and dates. Narrow to the handful that could
+   plausibly be the one. Add `--claude`/`--codex` if the user said which.
+3. **Read what they typed.** For each candidate, `agent-sessions prompts <id>`
+   prints the prompts the user typed in that session. Titles are only the first
+   thing typed, so this is the pass that actually decides it.
+4. **Answer.** Name the session, quote the prompt that made you sure, and offer
+   `/sessions-resume <id>`. If two are close, show both rather than guessing.
+
+You are the one doing the matching — there is no agent to hand it off to, and
+nothing here leaves the machine. Don't read the raw transcripts under
+`~/.claude/projects` yourself; `prompts` already extracts the user's turns and
+skips the harness-injected context.

@@ -15,16 +15,12 @@ final class InteractiveBrowser {
         case browsing
         /// Typing into the plain text filter.
         case searching
-        /// Typing a question for the coding agent.
-        case asking
         /// Waiting for `y` before moving sessions to the Trash.
         case confirmingDelete
     }
 
     private let terminal: Terminal
     private let index = SessionIndex()
-    /// Which coding agent answers `?`, when one is installed.
-    private let agent: SearchAgent?
 
     private var allRecords: [SessionRecord]
     private var query: SessionQuery
@@ -35,27 +31,11 @@ final class InteractiveBrowser {
     private var mode = Mode.browsing
     private var status: String?
 
-    /// Session ids in the order an agent ranked them, and its reason for each. Empty
-    /// until a search runs; while it is set, only those sessions are listed.
-    private var ranking: [String]
-    private var reasons: [String: String]
-    private var question = ""
-
-    init?(
-        records: [SessionRecord],
-        query: SessionQuery,
-        agent: SearchAgent? = nil,
-        ranking: [String] = [],
-        reasons: [String: String] = [:]
-    ) {
+    init?(records: [SessionRecord], query: SessionQuery) {
         guard let terminal = Terminal() else { return nil }
         self.terminal = terminal
         self.allRecords = records
         self.query = query
-        self.agent = agent ?? SearchAgent.detect()
-        self.ranking = ranking
-        self.reasons = reasons
-        if !ranking.isEmpty { self.query.sort = .relevance }
         rebuild()
     }
 
@@ -76,7 +56,6 @@ final class InteractiveBrowser {
         switch mode {
         case .confirmingDelete: return confirmDelete(key)
         case .searching: return typeSearch(key)
-        case .asking: return typeQuestion(key)
         case .browsing: return browse(key)
         }
     }
@@ -100,13 +79,6 @@ final class InteractiveBrowser {
             case "k": move(-1)
             case "/":
                 mode = .searching
-            case "?":
-                guard agent != nil else {
-                    note("Install claude or codex to search by description")
-                    break
-                }
-                question = ""
-                mode = .asking
             case "a": selection = Set(visible.map(\.id)); note("\(selection.count) selected")
             case "x": selection.removeAll()
             case "c": copyResumeCommands()
@@ -135,23 +107,6 @@ final class InteractiveBrowser {
             rebuild()
         case .up: move(-1)
         case .down: move(1)
-        default: break
-        }
-        return nil
-    }
-
-    private func typeQuestion(_ key: Terminal.Key) -> Outcome? {
-        switch key {
-        case .escape, .interrupt:
-            mode = .browsing
-            question = ""
-        case .enter:
-            mode = .browsing
-            askAgent()
-        case .backspace:
-            if !question.isEmpty { question.removeLast() }
-        case .character(let character):
-            question.append(character)
         default: break
         }
         return nil
@@ -200,19 +155,11 @@ final class InteractiveBrowser {
         move(1)
     }
 
-    /// Escape peels off one layer at a time: the agent's result, then the text
-    /// filter, and only then does it leave.
+    /// Escape drops the text filter first, and only leaves once there is none.
     private func clearNarrowing() {
-        if !ranking.isEmpty {
-            ranking = []
-            reasons = [:]
-            query.sort = .recent
-            rebuild()
-            note("Showing every session again")
-        } else if !query.text.isEmpty {
-            query.text = ""
-            rebuild()
-        }
+        guard !query.text.isEmpty else { return }
+        query.text = ""
+        rebuild()
     }
 
     private func resume(_ record: SessionRecord) -> Outcome? {
@@ -237,7 +184,6 @@ final class InteractiveBrowser {
         let removed = Set(outcome.removed.map(\.id))
         allRecords.removeAll { removed.contains($0.id) }
         selection.subtract(removed)
-        ranking.removeAll { removed.contains($0) }
         index.clearCache()
         rebuild()
 
@@ -245,40 +191,6 @@ final class InteractiveBrowser {
             note("Moved \(outcome.removed.count) to Trash · \(ByteFormat.short(outcome.reclaimedBytes)) freed")
         } else {
             note("\(outcome.failed.count) session(s) could not be removed")
-        }
-    }
-
-    /// Hands the typed description to the coding agent and narrows the list to what
-    /// it picks. The call blocks: there is nothing for the person to do until the
-    /// answer arrives, so the screen says what is happening instead.
-    private func askAgent() {
-        let asked = question.trimmingCharacters(in: .whitespaces)
-        question = ""
-        guard let agent, !asked.isEmpty else { return }
-
-        var search = AgentSearch(agent: agent, question: asked)
-        search.progress = { [weak self] message in
-            guard let self else { return }
-            self.status = message
-            self.render()
-        }
-
-        do {
-            let report = try search.run(over: query.apply(to: allRecords))
-            guard !report.hits.isEmpty else {
-                note("\(agent.displayName) found nothing matching that")
-                return
-            }
-            ranking = report.hits.map(\.record.id)
-            reasons = Dictionary(report.hits.map { ($0.record.id, $0.reason) }) { first, _ in first }
-            query.sort = .relevance
-            cursor = 0
-            rebuild()
-            note(report.note ?? "\(agent.displayName) picked \(ranking.count) · esc to show all")
-        } catch let failure as AgentSearch.Failure {
-            note(failure.message)
-        } catch {
-            note(error.localizedDescription)
         }
     }
 
@@ -292,7 +204,7 @@ final class InteractiveBrowser {
     }
 
     private func cycleSort() {
-        let options = ranking.isEmpty ? SessionSort.manual : SessionSort.manual + [.relevance]
+        let options = SessionSort.allCases
         let next = (options.firstIndex(of: query.sort).map { $0 + 1 } ?? 0) % options.count
         query.sort = options[next]
         rebuild()
@@ -313,24 +225,17 @@ final class InteractiveBrowser {
 
     private func rebuild() {
         let anchor = current?.id
-        visible = query.apply(to: base)
+        visible = query.apply(to: allRecords)
         cursor = anchor.flatMap { id in visible.firstIndex { $0.id == id } } ?? cursor
         cursor = min(max(0, cursor), max(0, visible.count - 1))
         status = nil
-    }
-
-    /// While an agent result is in play the list is drawn from it, in its order.
-    private var base: [SessionRecord] {
-        guard !ranking.isEmpty else { return allRecords }
-        let byID = Dictionary(allRecords.map { ($0.id, $0) }) { first, _ in first }
-        return ranking.compactMap { byID[$0] }
     }
 
     // MARK: - Rendering
 
     /// Two terminal lines per session: the title, then its id, meta and directory.
     private let linesPerRow = 2
-    /// Header, prompt line, two dividers, the reason line and the key hints.
+    /// Header, prompt line, two dividers, the status line and the key hints.
     private let chromeLines = 6
 
     private var pageSize: Int {
@@ -378,16 +283,11 @@ final class InteractiveBrowser {
         return left + String(repeating: " ", count: gap) + Style.dim(right)
     }
 
-    /// One line that is either the text filter or the question being typed.
+    /// The text filter, with a caret while it is being typed.
     private func promptLine(_ columns: Int) -> String {
-        if mode == .asking {
-            let label = agent?.displayName ?? "agent"
-            return "  " + Style.yellow("ask \(label):") + " "
-                + TextWidth.truncate(question + "█", to: columns - TextWidth.of("ask \(label):") - 5)
-        }
         let caret = mode == .searching ? "█" : ""
         let text = query.text.isEmpty && mode != .searching
-            ? Style.dim("/ to search, ? to describe what you remember")
+            ? Style.dim("/ to search")
             : Style.cyan("/") + " " + query.text + caret
         return "  " + TextWidth.truncate(text, to: columns - 4)
     }
@@ -416,7 +316,7 @@ final class InteractiveBrowser {
         return [first, second]
     }
 
-    /// Status, the pending confirmation, or the agent's reason for the current row.
+    /// Status, or the pending delete confirmation.
     private func infoLine(_ columns: Int) -> String {
         if mode == .confirmingDelete {
             return "  " + Style.yellow("Move \(targets.count) session(s) to the Trash?")
@@ -425,9 +325,6 @@ final class InteractiveBrowser {
         if let status {
             return "  " + Style.cyan(TextWidth.truncate(status, to: columns - 4))
         }
-        if let reason = current.flatMap({ reasons[$0.id] }) {
-            return "  " + Style.dim(TextWidth.truncate("↳ \(reason)", to: columns - 4))
-        }
         return ""
     }
 
@@ -435,9 +332,8 @@ final class InteractiveBrowser {
         let left = selection.isEmpty ? "" : Style.bold("\(selection.count) selected") + "  "
         let hints = switch mode {
         case .searching: "type to filter · enter done · esc clear"
-        case .asking: "describe the session · enter to ask · esc to cancel"
         default:
-            "↑↓ move · space select · / search · ? ask · enter resume · c copy · d trash · s sort · f filter · q quit"
+            "↑↓ move · space select · / search · enter resume · c copy · d trash · s sort · f filter · q quit"
         }
         return "  " + left + Style.dim(TextWidth.truncate(hints, to: max(20, columns - TextWidth.of(left) - 4)))
     }

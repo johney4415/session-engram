@@ -7,7 +7,8 @@ and clean up — from the menu bar, the terminal, or inside Claude Code itself.
 
 It reads the transcripts already on disk — `~/.claude/projects` and
 `~/.codex/sessions` — and titles each one by the first prompt you typed, not the
-context the harness injected. Everything stays local except `ask`.
+context the harness injected. Every command reads local files and writes to your
+terminal; nothing leaves the machine and there is no telemetry.
 
 ## Install
 
@@ -42,9 +43,12 @@ echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc && exec zsh
 | `/sessions-resume <id>` | Print the line that reopens it |
 | `/sessions-clean` | Show what is eating disk, delete what you pick |
 
-Plain language works too — "which session was the redis one". Claude hands you
-the resume command rather than running it, since resuming replaces the process.
-The plugin calls the CLI, so install that as well.
+Plain language works too — "which session was the redis one". Word search only
+finds what you can spell, so for those Claude shortlists on the metadata and
+then reads the prompts you typed in each candidate, which is what tells apart
+two sessions on the same subject. It hands you the resume command rather than
+running it, since resuming replaces the process. The plugin calls the CLI, so
+install that as well.
 
 ## Use it
 
@@ -61,7 +65,6 @@ full-screen.
 | `↑` `↓` / `k` `j` | Move |
 | `space` `a` `x` | Select the row / everything shown / nothing |
 | `/` | Filter by word |
-| `?` | Describe what you remember, let claude or codex find it |
 | `enter` | Resume under the cursor, in this terminal |
 | `c` `d` | Copy the resume command / move to the Trash after a `y` |
 | `s` `f` `r` | Cycle sort / cycle provider / rescan |
@@ -72,6 +75,7 @@ full-screen.
 ```sh
 agent-sessions list --sort largest -n 10     # what is eating disk
 agent-sessions list --codex --search redis
+agent-sessions prompts 1a2b3c4d              # the prompts you typed in one session
 eval "$(agent-sessions resume 1a2b3c4d)"     # jump straight back in
 agent-sessions delete 1a2b3c4d --yes         # move to Trash
 agent-sessions list --plain | fzf -m | cut -f1 | xargs agent-sessions delete
@@ -85,23 +89,20 @@ is the one way this tool removes a transcript unrecoverably.
 
 ## Finding one by description
 
-Word search only finds what you can spell. `ask` is for the sessions you
-remember by what happened in them.
+Word search only finds what you can spell. For the sessions you remember by what
+happened in them, `prompts` prints what you typed in one session:
 
 ```sh
-agent-sessions ask "the one where we chased the redis memory limit"
-agent-sessions ask --agent codex --limit 3 "清理磁碟空間那次"
+agent-sessions prompts 1a2b3c4d
+agent-sessions prompts 1a2b3c4d --limit 20 --json
 ```
 
-It shortlists from the metadata, then reads the prompts of the shortlist and
-ranks what actually matches — a title is only the first thing you typed. Matches
-open in the browser, sorted by relevance; `--plain` and `--json` print them.
+A title is only the first thing you typed, so a session on the right subject
+often has an unrelated title — the prompts are what tell two of them apart.
+Shortlist with `list`, then read the candidates with `prompts`. Inside Claude
+Code, `/sessions-ask` does both passes for you.
 
-This is the one command that is not local. It runs `claude -p` or `codex exec`
-under the login you already have, so it needs no API key, and what it sends goes
-wherever that agent already sends your prompts: one metadata line per session,
-then the prompts *you typed* in the dozen it shortlisted. Assistant replies, tool
-calls and file contents are never read. `--dry-run` prints the prompt and sends
-nothing. Each search leaves one short session of its own.
+Only your own turns are read, and the harness-injected context is skipped;
+assistant replies, tool calls and file contents are never touched.
 
 MIT licensed.
