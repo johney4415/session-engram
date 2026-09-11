@@ -1,0 +1,25 @@
+name: Feature request
+description: Something the tool should do and does not
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you were trying to do
+      description: The situation, not the feature. What were you looking for, and what did you end up doing instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you had in mind
+      description: Optional. A flag, a key, a column — whatever shape you imagined.
+
+  - type: checkboxes
+    id: local
+    attributes:
+      label: Scope
+      options:
+        - label: This can be done by reading local files only, with no network call and no API key.
+          required: true

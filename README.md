@@ -105,4 +105,4 @@ Code, `/sessions-ask` does both passes for you.
 Only your own turns are read, and the harness-injected context is skipped;
 assistant replies, tool calls and file contents are never touched.
 
-MIT licensed.
+MIT licensed. Building on it: [CONTRIBUTING.md](CONTRIBUTING.md).

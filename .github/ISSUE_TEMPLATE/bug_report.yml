@@ -1,0 +1,67 @@
+name: Bug report
+description: Something read, listed, resumed or deleted wrongly
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Do not paste transcript contents.** This tool reads your sessions, and
+        those carry client names, internal hostnames and whatever you pasted
+        into an agent. Session titles and directory paths are usually enough —
+        redact them if they are not. A session id on its own is fine.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you ran, and what it did instead of what you expected.
+      placeholder: |
+        $ session-engram list --sort largest -n 5
+        ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where
+      multiple: true
+      options:
+        - CLI (session-engram ...)
+        - Terminal browser (the full-screen list)
+        - Menu bar app
+        - Claude Code plugin (/sessions ...)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Which sessions
+      description: Whose transcripts the problem is about.
+      multiple: true
+      options:
+        - Claude Code (~/.claude/projects)
+        - Codex (~/.codex/sessions)
+        - Both
+        - Not about a particular session
+    validations:
+      required: true
+
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: "Output of: session-engram --version; sw_vers -productVersion; swift --version | head -1"
+      placeholder: 0.1.0 / 15.1 / swift-6.0.2
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: |
+        If a session is listed wrongly, `session-engram list --json --search <id>`
+        for that one session is the useful attachment — check it for anything
+        private before pasting.
