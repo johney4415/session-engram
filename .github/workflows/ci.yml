@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    # The package targets macOS 14 and the menu bar app needs AppKit, so this
+    # cannot run on a Linux runner.
+    runs-on: macos-15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Printed so a toolchain change shows up in the log rather than as a
+      # mystery compile error.
+      - name: Toolchain
+        run: |
+          swift --version
+          xcodebuild -version
+
+      - name: Build
+        run: swift build -c release
+
+      - name: Test
+        run: swift test
+
+      # The installer is the documented way in, so a break in it is a break in
+      # the README. It goes to a scratch prefix, not the runner's real one.
+      - name: Install script
+        run: |
+          SESSION_ENGRAM_BIN_DIR="$RUNNER_TEMP/bin" ./scripts/install.sh --cli-only
+          "$RUNNER_TEMP/bin/session-engram" --version
+          "$RUNNER_TEMP/bin/session-engram" help > /dev/null
