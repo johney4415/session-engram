@@ -16,7 +16,7 @@ jobs:
     runs-on: macos-15
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # Printed so a toolchain change shows up in the log rather than as a
       # mystery compile error.
