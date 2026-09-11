@@ -55,6 +55,12 @@ struct ClaudeScanner: Sendable {
 
                 let text = TranscriptReader.text(from: message["content"])
                 guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return true }
+                // Both the count and the title take only what the person wrote, the way
+                // CodexScanner does. Both CLIs push context through the user role — slash
+                // command turns, subagent notifications, reminders — and counting those
+                // inflates the turn count while burying the first typed prompt past the
+                // candidate cap, leaving nothing to title the session with.
+                guard TitleBuilder.isPersonWritten(text) else { return true }
                 messageCount += 1
                 if candidates.count < 6 { candidates.append(text) }
                 return true

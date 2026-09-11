@@ -49,8 +49,8 @@ private struct Fixture {
     #expect(record.sessionID == "abc-123")
     #expect(record.cwd == "/Users/x/work")
     #expect(record.title == "幫我解 merge conflict")
-    // The meta turn is skipped; the slash command, the real prompt and "commit" are counted.
-    #expect(record.messageCount == 3)
+    // The meta turn and the slash command are skipped; the real prompt and "commit" count.
+    #expect(record.messageCount == 2)
     #expect(record.updatedAt == TranscriptReader.date(from: "2026-09-10T02:42:00.000Z"))
     #expect(record.auxiliaryPaths.isEmpty)
 }
