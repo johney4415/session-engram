@@ -11,8 +11,7 @@ enum SessionExcerpt {
 
         /// Returns false once enough prompts are collected, which stops the read.
         func collect(_ raw: String) -> Bool {
-            guard TitleBuilder.isPersonWritten(raw) else { return true }
-            let text = TitleBuilder.normalize(raw)
+            guard let text = TitleBuilder.displayText(raw) else { return true }
             guard text.count >= 4, text.contains(where: { $0.isLetter }) else { return true }
             found.append(text.count > characters ? String(text.prefix(characters)) + "…" : text)
             return found.count < limit

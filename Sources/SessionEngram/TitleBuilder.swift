@@ -12,18 +12,58 @@ enum TitleBuilder {
 
     /// Picks the first prompt worth showing and normalizes it.
     static func title(from candidates: [String]) -> String? {
-        for candidate in candidates where isPersonWritten(candidate) {
-            let cleaned = normalize(candidate)
+        for candidate in candidates {
+            guard let cleaned = displayText(candidate) else { continue }
             if isUsable(cleaned) { return truncate(cleaned) }
         }
         return nil
     }
 
+    /// What one turn should read as in a list, or nil when the harness wrote it.
+    static func displayText(_ raw: String) -> String? {
+        if let command = slashCommand(raw) { return command }
+        guard isPersonWritten(raw) else { return nil }
+        return normalize(raw)
+    }
+
+    /// Rebuilds the line a person typed to run a slash command.
+    ///
+    /// The harness stores the invocation as tags, so the plain filter throws it away
+    /// with the rest of the injected context — and with it the only thing that
+    /// identifies a session spent entirely on one command. `/review-pr 16942` is how
+    /// someone looks for that session later, so the arguments are kept verbatim:
+    /// stripping the link would take the number with it.
+    ///
+    /// Only commands that carry arguments come back. A bare `/clear` or `/compact`
+    /// names the command, never the session.
+    static func slashCommand(_ raw: String) -> String? {
+        guard let name = tagValue("command-name", in: raw), !name.isEmpty,
+              let args = tagValue("command-args", in: raw), !args.isEmpty
+        else { return nil }
+        return collapseWhitespace("\(name) \(args)")
+    }
+
+    private static func tagValue(_ tag: String, in raw: String) -> String? {
+        guard let range = raw.range(
+            of: "<\(tag)>[\\s\\S]*?</\(tag)>",
+            options: .regularExpression
+        ) else { return nil }
+        let inner = raw[range].dropFirst(tag.count + 2).dropLast(tag.count + 3)
+        return collapseWhitespace(String(inner))
+    }
+
+    private static func collapseWhitespace(_ text: String) -> String {
+        text.replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     /// Rejects turns that the harness injected rather than the person typing.
     ///
     /// Both CLIs push context into the user role — reminders, available plugins,
-    /// recovered state — and every one of those starts with a tag.
+    /// recovered state — and every one of those starts with a tag. A slash command
+    /// with arguments is the exception: it is tagged too, but the person typed it.
     static func isPersonWritten(_ raw: String) -> Bool {
+        if slashCommand(raw) != nil { return true }
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.hasPrefix("<") { return false }
         if trimmed.hasPrefix("Caveat:") { return false }
