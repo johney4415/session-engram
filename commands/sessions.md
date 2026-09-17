@@ -10,8 +10,11 @@ Arguments, if any: `$ARGUMENTS`
 
 1. Run `session-engram list --plain --limit 20`, adding the arguments above.
    Bare words go through `--search` (every word has to match the title, the
-   directory or the id); flags such as `--claude`, `--codex`, `--sort largest`
-   or `-n 30` pass straight through.
+   directory or the id); flags such as `--claude`, `--codex`, `--content`,
+   `--sort largest` or `-n 30` pass straight through. If the plain word search
+   matches nothing, run it once more with `--content` before giving up — that
+   also reads the transcripts, so a number or name that only appeared
+   mid-conversation still finds its session.
 2. Present the result as a table: short id (first 8 characters), when it was
    last touched, provider, turns, size, directory, title.
 3. Close with the total count and disk size, and offer the obvious next steps —

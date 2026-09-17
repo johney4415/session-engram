@@ -11,6 +11,9 @@ If the description is empty, ask what they remember about the session and stop.
 1. **Try the word search first.** `session-engram list --plain --search "<the
    distinctive words>" --limit 10`. If the description contains a word that
    would really appear in a title, directory or id, this answers it outright.
+   For an exact token — an id, a PR number, an error string — add `--content`
+   so the transcripts are read too; that finds a session whose only trace of
+   the token is mid-conversation.
 2. **Otherwise shortlist by metadata.** `session-engram list --plain --limit 60`
    and read the titles, directories and dates. Narrow to the handful that could
    plausibly be the one. Add `--claude`/`--codex` if the user said which.

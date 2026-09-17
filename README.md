@@ -75,6 +75,7 @@ full-screen.
 ```sh
 session-engram list --sort largest -n 10     # what is eating disk
 session-engram list --codex --search redis
+session-engram list --content 16942          # also look inside the transcripts
 session-engram prompts 1a2b3c4d              # the prompts you typed in one session
 eval "$(session-engram resume 1a2b3c4d)"     # jump straight back in
 session-engram delete 1a2b3c4d --yes         # move to Trash
@@ -89,8 +90,11 @@ is the one way this tool removes a transcript unrecoverably.
 
 ## Finding one by description
 
-Word search only finds what you can spell. For the sessions you remember by what
-happened in them, `prompts` prints what you typed in one session:
+Word search only finds what you can spell, and only in the title, directory and
+id. `--content` widens it to the transcripts themselves — a PR number or error
+string that only came up mid-conversation still lands on its session, at the
+cost of reading every file. For the sessions you remember by what happened in
+them, `prompts` prints what you typed in one session:
 
 ```sh
 session-engram prompts 1a2b3c4d

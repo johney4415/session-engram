@@ -35,6 +35,7 @@ enum CLI {
     LIST OPTIONS
       --claude, --codex        Only one provider
       --search <text>          Match title, directory or id (all words must match)
+      --content                Also match words inside the transcripts (slower)
       --sort <newest|oldest|largest|busiest>
       --limit <n>              Show at most n sessions
       --no-archived            Hide Codex archived sessions
@@ -48,6 +49,7 @@ enum CLI {
 
     EXAMPLES
       session-engram list --search "export preview" --limit 10
+      session-engram list --plain --content 16942
       eval "$(session-engram resume 1a2b3c4d)"
       session-engram list --plain | fzf -m | cut -f1 | xargs session-engram delete
       session-engram browse --codex --sort largest
@@ -139,7 +141,10 @@ enum CLI {
     /// Interactive browser. Without a terminal to draw on — a pipe, a cron job —
     /// this degrades to the plain listing rather than failing.
     static func browse(_ args: [String]) throws {
-        let options = try Options(args)
+        var options = try Options(args)
+        // The browser re-applies the query on every keystroke; a disk scan per key
+        // would make typing lag, so the interactive filter stays on the metadata.
+        options.query.searchContent = false
         try browse(records: loadRecords(), query: options.query, args: args)
     }
 
@@ -307,6 +312,7 @@ enum CLI {
                 case "--claude": query.provider = .claude
                 case "--codex": query.provider = .codex
                 case "--no-archived": query.includeArchived = false
+                case "--content", "--deep": query.searchContent = true
                 case "--json": json = true
                 case "--plain": plain = true
                 case "--interactive", "-i": interactive = true

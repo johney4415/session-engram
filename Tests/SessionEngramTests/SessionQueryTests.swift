@@ -125,3 +125,37 @@ private func record(
     let records = [record("a"), record("b"), record("a", provider: .codex)]
     #expect(SessionMerger.merge(records).count == 3)
 }
+
+@Test func contentSearchReadsTranscriptsOnlyWhenAsked() throws {
+    let directory = FileManager.default.temporaryDirectory
+        .appendingPathComponent("session-engram-content-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+
+    let hit = directory.appendingPathComponent("hit.jsonl")
+    let miss = directory.appendingPathComponent("miss.jsonl")
+    try #"{"type":"user","message":{"content":"/cross-review-pr https://github.com/x/y/pull/16942"}}"#
+        .write(to: hit, atomically: true, encoding: .utf8)
+    try #"{"type":"user","message":{"content":"幫我看 Redis 記憶體"}}"#
+        .write(to: miss, atomically: true, encoding: .utf8)
+
+    var withHit = record("a", title: TitleBuilder.fallback)
+    withHit.transcriptPath = hit.path
+    var withMiss = record("b", title: TitleBuilder.fallback)
+    withMiss.transcriptPath = miss.path
+    var byTitle = record("c", title: "PR 16942 follow-up")
+    byTitle.transcriptPath = directory.appendingPathComponent("absent.jsonl").path
+
+    var query = SessionQuery()
+    query.text = "16942"
+    #expect(query.apply(to: [withHit, withMiss, byTitle]).map(\.sessionID) == ["c"])
+
+    query.searchContent = true
+    #expect(Set(query.apply(to: [withHit, withMiss, byTitle]).map(\.sessionID)) == ["a", "c"])
+
+    // Matching is case-insensitive and every word must appear in the same session.
+    query.text = "CROSS-REVIEW 16942"
+    #expect(query.apply(to: [withHit, withMiss]).map(\.sessionID) == ["a"])
+    query.text = "16942 redis"
+    #expect(query.apply(to: [withHit, withMiss]).isEmpty)
+}

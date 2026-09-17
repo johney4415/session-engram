@@ -38,6 +38,7 @@ stderr.
 session-engram list --plain --limit 20              # newest first
 session-engram list --json --limit 5                # full records
 session-engram list --plain --search "redis limit"  # every word must match
+session-engram list --plain --content 16942         # also read the transcripts
 session-engram list --plain --sort largest -n 10    # disk hogs
 session-engram list --plain --claude                # one provider only
 ```
@@ -49,7 +50,11 @@ session-engram list --plain --claude                # one provider only
 ```
 
 `--search` matches the title, the directory and the id, and every word has to
-match, so it only finds what the user can spell. `--sort` takes
+match, so it only finds what the user can spell. Add `--content` to also match
+words inside the transcripts themselves — a PR number, a table name or an error
+string that was only ever pasted mid-conversation. It reads every transcript
+(a second or two), and matching is a plain case-insensitive substring check over
+the whole file, so assistant output and tool results count too. `--sort` takes
 `newest|oldest|largest|busiest`, and `--no-archived` hides archived Codex
 sessions.
 
@@ -62,8 +67,11 @@ are not enough to answer with.
 
 1. **Shortlist from the metadata.** `session-engram list --plain --limit 60`,
    narrowed by `--claude`/`--codex` or a `--search` word if the description
-   gives you one that will actually appear. Read the titles, directories and
-   dates, and pick the handful that could plausibly be it.
+   gives you one that will actually appear. When the description carries an
+   exact token — an id, a PR number, an error message — try
+   `--content <token>` first; it finds the session even when the token never
+   made it into the title. Read the titles, directories and dates, and pick
+   the handful that could plausibly be it.
 2. **Read what they typed.** For each candidate, `session-engram prompts <id>`
    prints the prompts the user typed in that session, one per line — the topic
    of the session in their own words. `--limit <n>` takes more or fewer,
